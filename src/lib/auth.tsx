@@ -43,6 +43,13 @@ function friendlyAuthError(error: unknown) {
     "auth/popup-closed-by-user": "Google sign-in was cancelled.",
     "auth/popup-blocked": "Your browser blocked the sign-in popup. Please allow popups and try again.",
     "auth/operation-not-allowed": "This sign-in method is not enabled in Firebase yet.",
+    "auth/unauthorized-domain": "This website domain is not authorized in Firebase Authentication. Add the current Vercel domain in Firebase Authentication → Settings → Authorized domains.",
+    "auth/network-request-failed": "Network error while contacting Firebase. Check your internet connection and try again.",
+    "auth/user-disabled": "This Firebase account has been disabled.",
+    "auth/user-not-found": "No account was found with this email.",
+    "auth/wrong-password": "Email or password is incorrect.",
+    "auth/configuration-not-found": "Firebase Authentication is not configured correctly for this project.",
+    "auth/internal-error": "Firebase returned an internal authentication error. Please try again.",
   };
   return messages[code] || "Something went wrong while signing you in. Please try again.";
 }
@@ -77,10 +84,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void (async () => {
         setUser(nextUser);
         setLoading(false);
-        // Authentication itself is the source of truth for the modal.
-        // Close it immediately after Firebase confirms the session, so a
-        // Firestore profile/admin sync failure can never leave the login UI open.
-        if (nextUser) setAuthOpen(false);
         if (!nextUser) {
           setIsAdmin(false);
           return;
@@ -109,12 +112,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loginWithGoogle: async () => {
       try {
         const result = await signInWithPopup(auth, new GoogleAuthProvider());
-        // Firebase authentication succeeded. Close the modal now.
-        // Profile/admin sync is handled by onAuthStateChanged and must not
-        // turn a successful sign-in into a false authentication error.
+        // Firebase Authentication has succeeded. Do not block login on Firestore
+        // profile syncing because Firestore rules must not be able to turn a
+        // successful sign-in into a misleading "Something went wrong" error.
         setUser(result.user);
         setAuthOpen(false);
-        setLoading(false);
+        void syncUser(result.user).catch(() => undefined);
       } catch (error) {
         throw new Error(friendlyAuthError(error));
       }
@@ -122,9 +125,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loginWithEmail: async (email, password) => {
       try {
         const result = await signInWithEmailAndPassword(auth, email, password);
+        // Authentication succeeded; close the modal immediately. Profile sync is
+        // best-effort and must never make a valid login look like a failed login.
         setUser(result.user);
         setAuthOpen(false);
-        setLoading(false);
+        void syncUser(result.user).catch(() => undefined);
       } catch (error) {
         throw new Error(friendlyAuthError(error));
       }
@@ -142,17 +147,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (name.trim()) await updateProfile(result.user, { displayName: name.trim() });
         setUser(result.user);
         setAuthOpen(false);
-        setLoading(false);
+        void syncUser(result.user).catch(() => undefined);
       } catch (error) {
         throw new Error(friendlyAuthError(error));
       }
     },
-    logout: async () => {
-      setAuthOpen(false);
-      setIsAdmin(false);
-      setUser(null);
-      await signOut(auth);
-    },
+    logout: () => signOut(auth),
   }), [authMode, authOpen, isAdmin, loading, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
