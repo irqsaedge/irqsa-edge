@@ -77,6 +77,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void (async () => {
         setUser(nextUser);
         setLoading(false);
+        // Authentication itself is the source of truth for the modal.
+        // Close it immediately after Firebase confirms the session, so a
+        // Firestore profile/admin sync failure can never leave the login UI open.
+        if (nextUser) setAuthOpen(false);
         if (!nextUser) {
           setIsAdmin(false);
           return;
@@ -105,8 +109,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loginWithGoogle: async () => {
       try {
         const result = await signInWithPopup(auth, new GoogleAuthProvider());
-        await syncUser(result.user);
+        // Firebase authentication succeeded. Close the modal now.
+        // Profile/admin sync is handled by onAuthStateChanged and must not
+        // turn a successful sign-in into a false authentication error.
+        setUser(result.user);
         setAuthOpen(false);
+        setLoading(false);
       } catch (error) {
         throw new Error(friendlyAuthError(error));
       }
@@ -114,8 +122,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loginWithEmail: async (email, password) => {
       try {
         const result = await signInWithEmailAndPassword(auth, email, password);
-        await syncUser(result.user);
+        setUser(result.user);
         setAuthOpen(false);
+        setLoading(false);
       } catch (error) {
         throw new Error(friendlyAuthError(error));
       }
@@ -131,13 +140,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const result = await createUserWithEmailAndPassword(auth, email, password);
         if (name.trim()) await updateProfile(result.user, { displayName: name.trim() });
-        await syncUser(result.user);
+        setUser(result.user);
         setAuthOpen(false);
+        setLoading(false);
       } catch (error) {
         throw new Error(friendlyAuthError(error));
       }
     },
-    logout: () => signOut(auth),
+    logout: async () => {
+      setAuthOpen(false);
+      setIsAdmin(false);
+      setUser(null);
+      await signOut(auth);
+    },
   }), [authMode, authOpen, isAdmin, loading, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
