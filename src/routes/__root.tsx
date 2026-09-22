@@ -11,7 +11,8 @@ import {
   
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { WifiOff } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { ThemeProvider } from "../lib/theme";
@@ -130,6 +131,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap",
         },
         { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+        { rel: "manifest", href: "/manifest.webmanifest" },
       ],
       scripts: [
         {
@@ -190,11 +192,34 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [online, setOnline] = useState(
+    () => typeof navigator === "undefined" || navigator.onLine,
+  );
+
+  useEffect(() => {
+    if ("serviceWorker" in navigator && import.meta.env.PROD) {
+      void navigator.serviceWorker.register("/sw.js");
+    }
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ThemeProvider>
+          {!online ? (
+            <div className="fixed inset-x-0 top-0 z-[120] flex items-center justify-center gap-2 bg-amber-500 px-4 py-2 text-center text-xs font-semibold text-amber-950 shadow-lg">
+              <WifiOff className="size-3.5" /> Offline mode — saved pages are
+              still available.
+            </div>
+          ) : null}
           <LoadingScreen />
           <CustomCursor />
           <ScrollProgress />

@@ -6,9 +6,8 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build && tsc --noEmit",
-    "build:android": "set CAPACITOR_BUILD=true&& vite build && tsc --noEmit",
-    "android:sync": "npm run build:android && npx cap sync android",
-    "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug",
+    "android:sync": "npx cap sync android",
+    "android:apk": "npm run android:sync && cd android && gradlew.bat assembleDebug",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",

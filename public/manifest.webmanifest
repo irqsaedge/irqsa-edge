@@ -1,0 +1,16 @@
+{
+  "name": "Irqsa Edge",
+  "short_name": "Irqsa Edge",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#101827",
+  "theme_color": "#2563eb",
+  "description": "Web, digital and IT solutions from Irqsa Edge.",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}
