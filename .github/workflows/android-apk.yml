@@ -7,6 +7,7 @@ on:
     paths:
       - "android/**"
       - "public/**"
+      - "src/**"
       - "capacitor.config.ts"
       - "package.json"
       - "package-lock.json"
